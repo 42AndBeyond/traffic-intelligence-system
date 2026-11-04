@@ -1,0 +1,14 @@
+venv/
+__pycache__/
+*.pyc
+.env
+node_modules/
+dist/
+uploads/*
+snapshots/*
+database/*.db
+models/*.pt
+*.mp4
+*.avi
+!uploads/.gitkeep
+!snapshots/.gitkeep
