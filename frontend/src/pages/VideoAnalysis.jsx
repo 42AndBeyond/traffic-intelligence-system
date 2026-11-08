@@ -1,7 +1,14 @@
+
 import { useEffect, useState } from "react";
-import api from "../api";
+import api, { API_URL } from "../api";
 
 const COLORS = { LOW: "#16a34a", MODERATE: "#eab308", HIGH: "#dc2626" };
+
+const SEV = {
+  MODERATE: "#eab308",
+  HIGH: "#f97316",
+  CRITICAL: "#dc2626",
+};
 
 export default function VideoAnalysis() {
   const [file, setFile] = useState(null);
@@ -17,8 +24,10 @@ export default function VideoAnalysis() {
     setError("");
     setReport(null);
     setStatus(null);
+
     const form = new FormData();
     form.append("file", file);
+
     try {
       const r = await api.post("/api/video/upload", form);
       setJobId(r.data.job_id);
@@ -31,10 +40,12 @@ export default function VideoAnalysis() {
 
   useEffect(() => {
     if (!jobId) return;
+
     const timer = setInterval(async () => {
       try {
         const s = await api.get(`/api/video/${jobId}/status`);
         setStatus(s.data);
+
         if (s.data.status === "done") {
           clearInterval(timer);
           const r = await api.get(`/api/video/${jobId}/report`);
@@ -48,6 +59,7 @@ export default function VideoAnalysis() {
         setError("Lost connection to backend");
       }
     }, 1000);
+
     return () => clearInterval(timer);
   }, [jobId]);
 
@@ -56,7 +68,13 @@ export default function VideoAnalysis() {
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: 16 }}>
       <h2>Video Analysis</h2>
-      <input type="file" accept="video/*" onChange={(e) => setFile(e.target.files[0])} />
+
+      <input
+        type="file"
+        accept="video/*"
+        onChange={(e) => setFile(e.target.files[0])}
+      />
+
       <button onClick={upload} disabled={!file || busy} style={{ marginLeft: 8 }}>
         {busy ? "Processing..." : "Analyze"}
       </button>
@@ -68,46 +86,173 @@ export default function VideoAnalysis() {
         <div style={{ marginTop: 12 }}>
           <p>Status: {status.status} — {status.progress}%</p>
           <div style={{ background: "#333", height: 10, borderRadius: 5 }}>
-            <div style={{ width: `${status.progress}%`, height: 10, borderRadius: 5, background: "#3b82f6" }} />
+            <div
+              style={{
+                width: `${status.progress}%`,
+                height: 10,
+                borderRadius: 5,
+                background: "#3b82f6",
+              }}
+            />
           </div>
         </div>
       )}
 
       {report && (
         <>
-          <div style={{ margin: "12px 0", padding: 12, borderRadius: 8,
-            background: COLORS[report.overall_density], color: "white" }}>
+          {/* Overall traffic density */}
+          <div
+            style={{
+              margin: "12px 0",
+              padding: 12,
+              borderRadius: 8,
+              background: COLORS[report.overall_density],
+              color: "white",
+            }}
+          >
             <b>Overall traffic: {report.overall_density}</b>
           </div>
-          <p style={{ fontSize: 13, color: "#555" }}>{report.density_criteria}</p>
+
+          <p style={{ fontSize: 13, color: "#555" }}>
+            {report.density_criteria}
+          </p>
 
           <p>
-            Frames: {report.frames_processed}/{report.frames_read} | Duration: {report.duration_sec}s |
-            FPS: {report.fps} | Unique objects: {report.unique_objects}
+            Frames: {report.frames_processed}/{report.frames_read} |
+            Duration: {report.duration_sec}s |
+            FPS: {report.fps} |
+            Unique objects: {report.unique_objects}
           </p>
-          <p>{Object.entries(report.objects_by_category).map(([k, v]) => `${k}: ${v}`).join(" | ")}</p>
 
+          <p>
+            {Object.entries(report.objects_by_category)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(" | ")}
+          </p>
+
+          {/* Traffic timeline */}
           <h3>Traffic over time</h3>
-          <div style={{ display: "flex", height: 24, borderRadius: 4, overflow: "hidden" }}>
+
+          <div
+            style={{
+              display: "flex",
+              height: 24,
+              borderRadius: 4,
+              overflow: "hidden",
+            }}
+          >
             {report.density_timeline.map((x) => (
-              <div key={x.time} title={`${x.time}s — ${x.level} (${x.vehicles} vehicles)`}
-                style={{ flex: 1, background: COLORS[x.level] }} />
+              <div
+                key={x.time}
+                title={`${x.time}s — ${x.level} (${x.vehicles} vehicles)`}
+                style={{ flex: 1, background: COLORS[x.level] }}
+              />
             ))}
           </div>
+
           <p style={{ fontSize: 13 }}>
-            LOW {report.density_summary_percent.LOW}% | MODERATE {report.density_summary_percent.MODERATE}% | HIGH {report.density_summary_percent.HIGH}%
+            LOW {report.density_summary_percent.LOW}% |
+            MODERATE {report.density_summary_percent.MODERATE}% |
+            HIGH {report.density_summary_percent.HIGH}%
           </p>
 
-          <h3>Risk events</h3>
-          <p>{report.risk_events.length === 0 ? "No risk events detected." : `${report.risk_events.length} events`}</p>
+          {/* Predicted risk events */}
+          <h3>Predicted risk events ({report.risk_events.length})</h3>
 
+          <p style={{ fontSize: 13, color: "#555" }}>
+            {report.risk_note}
+          </p>
+
+          {report.risk_events.length === 0 && (
+            <p>No risk events detected.</p>
+          )}
+
+          {report.risk_events.map((ev) => (
+            <div
+              key={ev.event_id}
+              style={{
+                border: `2px solid ${SEV[ev.severity]}`,
+                borderRadius: 8,
+                padding: 12,
+                margin: "12px 0",
+                textAlign: "left",
+              }}
+            >
+              <b style={{ color: SEV[ev.severity] }}>
+                {ev.severity} RISK
+              </b>{" "}
+              at {ev.timestamp_sec}s
+
+              <p>
+                Objects: {ev.categories[0]} #{ev.ids[0]} and{" "}
+                {ev.categories[1]} #{ev.ids[1]}
+              </p>
+
+              <p>
+                Estimated time-to-collision: {ev.ttc_sec}s (estimate only)
+              </p>
+
+              <p>Why: {ev.reason_text}</p>
+
+              <p>Warning: {ev.warning}</p>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  flexWrap: "wrap",
+                }}
+              >
+                {ev.snapshots.map((s, i) => (
+                  <figure key={i} style={{ margin: 0 }}>
+                    <img
+                      src={API_URL + s.url}
+                      alt="snapshot"
+                      style={{
+                        width: 260,
+                        maxWidth: "100%",
+                        borderRadius: 6,
+                      }}
+                    />
+
+                    <figcaption style={{ fontSize: 12 }}>
+                      {s.label} — video time {s.timestamp_sec}s
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Tracked objects */}
           <h3>Tracked objects</h3>
-          <table border="1" cellPadding="6" style={{ borderCollapse: "collapse", width: "100%" }}>
-            <thead><tr><th>ID</th><th>Category</th><th>First seen (s)</th><th>Last seen (s)</th><th>Frames</th></tr></thead>
+
+          <table
+            border="1"
+            cellPadding="6"
+            style={{
+              borderCollapse: "collapse",
+              width: "100%",
+            }}
+          >
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Category</th>
+                <th>First seen (s)</th>
+                <th>Last seen (s)</th>
+                <th>Frames</th>
+              </tr>
+            </thead>
+
             <tbody>
               {report.tracks.map((t) => (
                 <tr key={t.id}>
-                  <td>#{t.id}</td><td>{t.category}</td><td>{t.first_seen}</td><td>{t.last_seen}</td><td>{t.frames}</td>
+                  <td>#{t.id}</td>
+                  <td>{t.category}</td>
+                  <td>{t.first_seen}</td>
+                  <td>{t.last_seen}</td>
+                  <td>{t.frames}</td>
                 </tr>
               ))}
             </tbody>
