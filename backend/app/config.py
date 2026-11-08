@@ -31,3 +31,20 @@ DENSITY = {
 
 MAX_IMAGE_MB = 10
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+REPORT_DIR = os.path.join(ROOT_DIR, "uploads", "reports")
+
+MAX_VIDEO_MB = 100
+ALLOWED_VIDEO_EXT = {".mp4", ".avi", ".mov", ".mkv"}
+
+# 1 = process every frame. Use 2 if processing is too slow on your PC.
+FRAME_STRIDE = 1
+
+# Video density: count + area + movement (speed in frame-widths per second)
+VIDEO_DENSITY = {
+    "moderate_count": 5,
+    "high_count": 12,
+    "moderate_area": 0.12,
+    "high_area": 0.30,
+    "slow_speed": 0.04,
+}

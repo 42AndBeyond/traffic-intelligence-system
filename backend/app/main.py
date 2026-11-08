@@ -4,13 +4,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
-from app.routers import image
+from app.routers import image, video
 
 load_dotenv()
 
 app = FastAPI(title="AAPP Traffic Intelligence API", version="0.1.0")
 
 app.include_router(image.router)
+app.include_router(video.router)
 
 origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(
@@ -29,3 +30,4 @@ app.mount("/snapshots", StaticFiles(directory="../snapshots"), name="snapshots")
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
